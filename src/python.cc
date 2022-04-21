@@ -46,6 +46,7 @@
 #include <future>
 #include <memory>
 #include <numeric>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -248,6 +249,7 @@ class ModelInstanceState : public BackendModelInstance {
   std::mutex bls_responses_mutex_;
   std::unique_ptr<SharedMemoryManager> shm_pool_;
   std::string shm_region_name_;
+  common::TritonJson::Value model_config_;
 
   // Stub process pid
   pid_t stub_pid_;
@@ -314,6 +316,9 @@ class ModelInstanceState : public BackendModelInstance {
 
   // Wait for BLS requests to complete
   void WaitForBLSRequestsToFinish();
+
+  // Correct the string to the right json string format
+  void CorrectStringFormat(std::string* str);
 };
 
 ModelInstanceState::ModelInstanceState(
@@ -484,6 +489,14 @@ void
 ModelInstanceState::WaitForBLSRequestsToFinish()
 {
   bls_futures_.clear();
+}
+
+void
+ModelInstanceState::CorrectStringFormat(std::string* str)
+{
+  *str = std::regex_replace(*str, std::regex("\'"), "\"");
+  *str = std::regex_replace(*str, std::regex("False"), "false");
+  *str = std::regex_replace(*str, std::regex("True"), "true");
 }
 
 bool
@@ -746,6 +759,14 @@ ModelInstanceState::StartStubProcess()
       }
     }
 
+    if (initialize_response->response_has_model_config) {
+      std::unique_ptr<PbString> model_config = PbString::LoadFromSharedMemory(
+          shm_pool_, initialize_response->response_model_config);
+      std::string model_config_string = model_config->String();
+      CorrectStringFormat(&model_config_string);
+      model_config_.Parse(model_config_string);
+    }
+
     initialized_ = true;
   }
 
@@ -824,7 +845,6 @@ ModelInstanceState::SetupStubProcess()
 
   return nullptr;
 }
-
 
 TRITONSERVER_Error*
 ModelInstanceState::GetInputTensor(
