@@ -34,13 +34,13 @@ namespace triton { namespace backend { namespace python {
 class ResponseSender {
  public:
   ResponseSender(
-      long long request_address,
-      std::unique_ptr<SharedMemoryManager>& shm_pool);
+      intptr_t request_address, std::unique_ptr<SharedMemoryManager>& shm_pool);
   void Send(std::shared_ptr<InferResponse>& infer_response);
   void Close();
 
  private:
-  long long request_address_;
+  intptr_t request_address_;
   std::unique_ptr<SharedMemoryManager>& shm_pool_;
+  bool closed_;
 };
 }}}  // namespace triton::backend::python
